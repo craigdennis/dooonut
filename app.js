@@ -4,6 +4,7 @@ const cron = require('node-cron');
 const { WebClient } = require('@slack/web-api');
 const matchingUtils = require('./utils');
 const config = require('./config');
+const matchService = require('./services/matchService');
 
 const app = express();
 app.use(express.json());
@@ -61,10 +62,11 @@ async function initiateMatches() {
                 console.log(`👥 Creating group DM for: ${match.pair.map(p => p.name).join(' and ')}`);
                 const channelId = await matchingUtils.createGroupDM(match);
                 console.log(`✅ Created group DM with channel ID: ${channelId}`);
-                activeMatches.set(channelId, {
+                
+                await matchService.createMatch({
                     ...match,
                     channelId,
-                    lastChecked: Date.now()
+                    lastChecked: new Date().toISOString()
                 });
             } catch (error) {
                 console.error(`❌ Error creating group DM for match:`, match, error);
@@ -79,41 +81,42 @@ async function initiateMatches() {
 // Check and send follow-ups for active matches
 async function checkAndFollowUp() {
     const now = Date.now();
-    console.log(`Checking follow-ups for ${activeMatches.size} active matches`);
+    const activeMatches = await matchService.getActiveMatches();
+    console.log(`Checking follow-ups for ${activeMatches.length} active matches`);
 
-    for (const [channelId, match] of activeMatches.entries()) {
+    for (const match of activeMatches) {
         try {
-            const timeSinceStart = now - match.timestamp;
+            const timeSinceStart = now - new Date(match.timestamp).getTime();
 
-            // Initial follow-up after 2 days
             if (timeSinceStart >= config.timing.initialFollowUp && match.status === 'pending') {
-                console.log(`Checking initial follow-up for channel ${channelId}`);
-                const hasResponse = await matchingUtils.checkForResponse(channelId, match.timestamp / 1000);
+                console.log(`Checking initial follow-up for channel ${match.channelId}`);
+                const hasResponse = await matchingUtils.checkForResponse(match.channelId, match.timestamp / 1000);
                 if (!hasResponse) {
-                    await matchingUtils.sendFollowUp(channelId, 'followUp');
-                    match.status = 'followed_up';
-                    console.log(`Sent initial follow-up to channel ${channelId}`);
+                    await matchingUtils.sendFollowUp(match.channelId, 'followUp');
+                    await matchService.updateMatch(match.channelId, { 
+                        status: 'followed_up' 
+                    });
+                    console.log(`Sent initial follow-up to channel ${match.channelId}`);
                 }
             }
 
-            // Check if meeting is scheduled after 1 week
             if (timeSinceStart >= config.timing.meetingScheduledCheck && match.status !== 'scheduled') {
-                console.log(`Sending schedule check to channel ${channelId}`);
-                await matchingUtils.sendFollowUp(channelId, 'scheduleCheck');
-                match.status = 'schedule_checked';
+                console.log(`Sending schedule check to channel ${match.channelId}`);
+                await matchingUtils.sendFollowUp(match.channelId, 'scheduleCheck');
+                await matchService.updateMatch(match.channelId, { 
+                    status: 'schedule_checked' 
+                });
             }
 
-            // Check if meeting is completed after 2 weeks
             if (timeSinceStart >= config.timing.meetingCompletionCheck && match.status !== 'completed') {
-                console.log(`Sending completion check to channel ${channelId}`);
-                await matchingUtils.sendFollowUp(channelId, 'completionCheck');
-                match.status = 'completion_checked';
+                console.log(`Sending completion check to channel ${match.channelId}`);
+                await matchingUtils.sendFollowUp(match.channelId, 'completionCheck');
+                await matchService.updateMatch(match.channelId, { 
+                    status: 'completion_checked' 
+                });
             }
-
-            // Update the match in our storage
-            activeMatches.set(channelId, match);
         } catch (error) {
-            console.error(`Error processing follow-up for channel ${channelId}:`, error);
+            console.error(`Error processing follow-up for channel ${match.channelId}:`, error);
         }
     }
 }
@@ -158,10 +161,10 @@ app.post('/api/trigger-matches', async (req, res) => {
 });
 
 // Health check endpoint
-app.get('/health', (req, res) => {
+app.get('/health', async (req, res) => {
     res.json({ 
         status: 'ok',
-        activeMatches: activeMatches.size,
+        activeMatches: (await matchService.getActiveMatches()).length,
         uptime: process.uptime(),
         slackConnected: slack ? true : false
     });

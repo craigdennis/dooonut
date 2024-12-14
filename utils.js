@@ -1,15 +1,15 @@
 const { WebClient } = require('@slack/web-api');
 const config = require('./config');
+const edgeConfig = require('./edge-config');
 
 class MatchingUtils {
     constructor() {
         this.slack = new WebClient(config.SLACK_BOT_TOKEN);
-        this.activeMatches = new Map();
     }
 
     // Generate random pairs from the employee list
-    generateMatches() {
-        const available = [...config.employees];
+    async generateMatches() {
+        const available = [...(await edgeConfig.get('employees'))];
         const matches = [];
         
         while (available.length >= 2) {
@@ -54,11 +54,6 @@ class MatchingUtils {
                 });
 
                 console.log('Message response:', JSON.stringify(messageResponse, null, 2));
-
-                this.activeMatches.set(channel, {
-                    ...match,
-                    channelId: channel
-                });
 
                 return channel;
             } else {
@@ -118,6 +113,5 @@ class MatchingUtils {
             throw error;
         }
     }
-}
 
 module.exports = new MatchingUtils(); 
