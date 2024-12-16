@@ -3,6 +3,7 @@ import { WebClient } from '@slack/web-api';
 import { createClient } from '@vercel/edge-config';
 import fetch from 'node-fetch';
 import { Headers } from 'node-fetch';
+import matchService from '../services/matchService.js';
 
 // Make fetch and Headers available globally
 global.Headers = Headers;
@@ -48,7 +49,16 @@ async function testMatchingAndDM() {
     const channelId = conversation.channel.id;
     console.log('✅ Created group DM with channel ID:', channelId);
 
-    // 4. Send test message
+    // 4. Store the match in the database
+    await matchService.createMatch({
+      ...testMatch,
+      channelId
+    });
+
+    // 5. Add to previous matches
+    await matchService.addToPreviousMatches(testMatch.pair);
+
+    // 6. Send test message
     const message = await slack.chat.postMessage({
       channel: channelId,
       text: "🧪 This is a test message for the coffee chat matching system. You can ignore this message."
