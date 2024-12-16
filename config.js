@@ -1,4 +1,4 @@
-module.exports = {
+const config = {
     // List of employees with their Slack user IDs
     employees: [
         // Add your employees here in the format:
@@ -12,6 +12,7 @@ module.exports = {
         initialFollowUp: 2 * 24 * 60 * 60 * 1000, // 2 days
         meetingScheduledCheck: 7 * 24 * 60 * 60 * 1000, // 1 week
         meetingCompletionCheck: 14 * 24 * 60 * 60 * 1000, // 2 weeks
+        matchExpiration: 180 * 24 * 60 * 60 * 1000, // 6 months in milliseconds
     },
 
     // Messages
@@ -24,4 +25,6 @@ module.exports = {
 
     // Slack Bot Token (to be set via environment variable)
     SLACK_BOT_TOKEN: process.env.SLACK_BOT_TOKEN
-}; 
+};
+
+export default config; 

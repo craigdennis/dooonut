@@ -138,6 +138,14 @@ try {
             console.error('Error in follow-up cron job:', error);
         });
     });
+
+    // Clean up expired matches weekly
+    cron.schedule('0 0 * * 0', () => {
+        console.log('Cleaning up expired matches...');
+        matchService.cleanupExpiredMatches().catch(error => {
+            console.error('Error in cleanup cron job:', error);
+        });
+    });
 } catch (error) {
     console.error('Error setting up cron jobs:', error);
 }

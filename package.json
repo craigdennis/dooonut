@@ -10,7 +10,8 @@
     "init-edge-config": "node scripts/init-edge-config.js",
     "test:edge-config": "node src/tests/edge-config-test.js",
     "init-employees": "node scripts/init-employees.js",
-    "test:matching": "node src/tests/slack-match-test.js"
+    "test:matching": "node src/tests/slack-match-test.js",
+    "test:match-storage": "node src/tests/match-storage-test.js"
   },
   "keywords": [
     "slack",
@@ -22,7 +23,7 @@
   "dependencies": {
     "@slack/web-api": "^7.0.0",
     "@vercel/edge-config": "^1.4.0",
-    "dotenv": "^16.3.1",
+    "dotenv": "^16.4.7",
     "node-cron": "^3.0.3",
     "node-fetch": "^3.3.2"
   },

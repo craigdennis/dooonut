@@ -1,5 +1,2 @@
-import { createClient } from '@vercel/edge-config';
-
-const edgeConfig = createClient(process.env.EDGE_CONFIG);
-
-export default edgeConfig; 
+import { edgeConfig } from './edge-config.js';
+export { edgeConfig }; 

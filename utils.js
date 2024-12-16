@@ -1,6 +1,7 @@
 const { WebClient } = require('@slack/web-api');
 const config = require('./config');
 const edgeConfig = require('./edge-config');
+const matchService = require('./matchService');
 
 class MatchingUtils {
     constructor() {
@@ -10,20 +11,48 @@ class MatchingUtils {
     // Generate random pairs from the employee list
     async generateMatches() {
         const available = [...(await edgeConfig.get('employees'))];
+        const previousMatches = await matchService.getPreviousMatches();
         const matches = [];
         
+        const hasBeenMatched = (person1, person2) => {
+            const now = Date.now();
+            return previousMatches.some(match => {
+                const matchPair = match.pair;
+                const isMatch = (
+                    (matchPair[0] === person1.id && matchPair[1] === person2.id) ||
+                    (matchPair[0] === person2.id && matchPair[1] === person1.id)
+                );
+                
+                return isMatch && (now - match.timestamp < config.timing.matchExpiration);
+            });
+        };
+
         while (available.length >= 2) {
             const index1 = Math.floor(Math.random() * available.length);
             const person1 = available.splice(index1, 1)[0];
             
-            const index2 = Math.floor(Math.random() * available.length);
-            const person2 = available.splice(index2, 1)[0];
+            // Find eligible matches for person1
+            const eligibleMatches = available.filter(person2 => !hasBeenMatched(person1, person2));
             
-            matches.push({
+            if (eligibleMatches.length === 0) {
+                // No eligible matches found, put person1 back and try again
+                available.push(person1);
+                continue;
+            }
+            
+            // Randomly select from eligible matches
+            const index2 = Math.floor(Math.random() * eligibleMatches.length);
+            const person2 = eligibleMatches[index2];
+            available.splice(available.indexOf(person2), 1);
+            
+            const match = {
                 pair: [person1, person2],
                 status: 'pending',
                 timestamp: Date.now()
-            });
+            };
+            
+            await matchService.addToPreviousMatches([person1, person2]);
+            matches.push(match);
         }
 
         console.log('Generated matches:', JSON.stringify(matches, null, 2));
